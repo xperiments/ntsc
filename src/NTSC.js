@@ -7,22 +7,28 @@
 // ntsc --list angular
 var fs = require('fs');
 var path = require('path');
+var https = require('https');
 var cheerio = require('../node_modules/cheerio');
 var prompt = require('../node_modules/cli-prompt');
 var mkdirp = require('../node_modules/mkdirp');
-var TScaffold = (function () {
-    function TScaffold(nodeBinDir, processDir, command, output) {
+var Table = require('../node_modules/cli-table');
+require("copy-paste");
+
+var NTSC = (function () {
+    function NTSC(nodeBinDir, processDir) {
         this.nodeBinDir = nodeBinDir;
         this.processDir = processDir;
-        this.output = output;
+        this.modulesURL = "/repos/xperiments/ntsc/contents/modules";
+        this.rawFileURL = "https://api.github.com/repos/xperiments/ntsc/contents/";
+        this.moduleDir = nodeBinDir + '/modules';
+    }
+    NTSC.prototype.processCommand = function (command, output) {
+        var _this = this;
         var commandModule = command.split('.')[0];
         this.commandsFile = this.getCommandsPath(commandModule);
-        this.processCommand(command);
-    }
-    TScaffold.prototype.processCommand = function (command) {
-        var _this = this;
+
         this.commandsContent = fs.readFileSync(this.commandsFile, { encoding: "utf8" });
-        var $ = this.$ = cheerio.load(this.commandsContent);
+        var $ = this.$ = cheerio['load'](this.commandsContent);
         var commands = [];
         if ($('tss').length != 0) {
             var el = $('tss[id="' + command + '"]');
@@ -67,29 +73,30 @@ var TScaffold = (function () {
                     });
                     var render = MicroMustache.render(el.find('tss-template').text(), result, _this);
                     var hasOuput = el.attr('ouput');
-
+                    var output;
                     if (hasOuput)
-                        _this.output = MicroMustache.render(hasOuput, result, _this);
-                    var dest = _this.processDir + '/' + _this.output;
+                        output = MicroMustache.render(hasOuput, result, _this);
+                    var dest = _this.processDir + '/' + output;
                     if (!fs.existsSync(dest)) {
                         mkdirp(path.dirname(dest), function (err) {
-                            if (err)
+                            if (err) {
                                 console.error(err);
-else
+                            } else {
                                 fs.writeFileSync(dest, render, { encoding: 'utf8' });
-                            console.log('[ntsc] [+] Generated', _this.output, 'file.');
+                            }
+                            console.log('[ntsc] [+] Generated', output, 'file.');
                         });
                     } else {
                         fs.writeFileSync(dest, render, { encoding: 'utf8' });
-                        console.log('[ntsc] [+] Generated', _this.output, 'file.');
+                        console.log('[ntsc] [+] Generated', output, 'file.');
                     }
                 });
             }
         }
     };
-    TScaffold.prototype.importCommand = function (command, view) {
+
+    NTSC.prototype.importCommand = function (command, view) {
         if (typeof view === "undefined") { view = {}; }
-        var _this = this;
         var $ = this.$;
         var commands = [];
         if ($('tss').length != 0) {
@@ -107,63 +114,142 @@ else
 
                 var render = MicroMustache.render(el.find('tss-template').text(), view, this);
                 var hasOuput = el.attr('ouput');
-
+                var output;
                 if (hasOuput)
-                    this.output = MicroMustache.render(hasOuput, view, this);
+                    output = MicroMustache.render(hasOuput, view, this);
 
-                var dest = this.processDir + '/' + this.output;
+                var dest = this.processDir + '/' + output;
                 if (!fs.existsSync(dest)) {
                     mkdirp(path.dirname(dest), function (err) {
                         if (err)
                             console.error(err);
 else
                             fs.writeFileSync(dest, render, { encoding: 'utf8' });
-                        console.log('[ntsc]	[+] Generated', _this.output, 'file.');
+                        console.log('[ntsc]	[+] Generated', output, 'file.');
                     });
                 } else {
                     fs.writeFileSync(dest, render, { encoding: 'utf8' });
-                    console.log('[ntsc]	[+] Generated', this.output, 'file.');
+                    console.log('[ntsc]	[+] Generated', output, 'file.');
                 }
             }
         }
     };
-    TScaffold.prototype.getCommandsPath = function (commandModule) {
+
+    NTSC.prototype.getCommandsPath = function (commandModule) {
         return this.nodeBinDir + '/modules/' + commandModule + '/' + commandModule + '.html';
     };
-    TScaffold.prototype._getCommandsPath = function () {
-        var upDirLimit = 50;
-        var parentPath = "../..";
 
-        if (fs.existsSync(this.processDir + '/package.json')) {
-            if (!fs.existsSync(this.processDir + '/tss.html')) {
-                console.log('No tss file');
+    // API
+    NTSC.prototype.queryModules = function () {
+        var options = {
+            host: 'api.github.com',
+            path: this.modulesURL,
+            headers: {
+                'User-Agent': 'ntsc'
+            }
+        };
+        https.get(options, function (res) {
+            var response = "";
+            res.on('data', function (d) {
+                response += d;
+            });
+
+            //the whole response has been recieved, so we just print it out here
+            res.on('end', function () {
+                var modules = JSON.parse(response);
+                modules.map(function (entry) {
+                    if (entry.type == "dir")
+                        console.log('----', entry.name);
+                });
                 process.exit(0);
-            }
-            return this.processDir + '/tss.html';
-        }
-
-        while (upDirLimit--) {
-            if (fs.existsSync(path.join(this.processDir, parentPath, 'package.json'))) {
-                break;
-            }
-            parentPath += "/..";
-        }
-
-        if (upDirLimit == -1) {
-            console.log('package.json not found');
-            process.exit(0);
-        }
-
-        if (!fs.existsSync(path.join(this.processDir, parentPath, 'tss.html'))) {
-            console.log('No tss file');
-            process.exit(0);
-        }
-
-        return path.join(this.processDir, parentPath, 'tss.html');
+            });
+        }).on('error', function (e) {
+            console.error(e);
+        });
     };
-    return TScaffold;
+
+    NTSC.prototype.installModule = function (moduleName) {
+        var _this = this;
+        var options = {
+            host: 'api.github.com',
+            path: this.modulesURL + '/' + moduleName + '/' + moduleName + '.html',
+            headers: {
+                'User-Agent': 'ntsc'
+            }
+        };
+        https.get(options, function (res) {
+            var response = "";
+            res.on('data', function (d) {
+                response += d;
+            });
+
+            //the whole response has been recieved, so we just print it out here
+            res.on('end', function () {
+                var result = JSON.parse(response);
+                if (result.hasOwnProperty("name") && result.hasOwnProperty("path")) {
+                    _this.saveModule(moduleName, result);
+                    console.log(module + ' installed.');
+                } else {
+                    console.log(module + ' not found');
+                    process.exit(0);
+                }
+            });
+        }).on('error', function (e) {
+            console.log(module + ' not found');
+            process.exit(0);
+        });
+    };
+
+    NTSC.prototype.uninstallModule = function (moduleName) {
+        console.log(this.moduleDir + '/' + moduleName);
+        if (fs.existsSync(this.moduleDir + '/' + moduleName)) {
+            NTSC.deleteFolderRecursive(this.moduleDir + '/' + moduleName);
+            console.log(moduleName + ' uninstalled.');
+        } else {
+            console.log(moduleName + ' is not currently installed!');
+        }
+    };
+
+    NTSC.prototype.saveModule = function (moduleName, result) {
+        var moduleDir = this.nodeBinDir + '/modules/' + moduleName;
+        if (!fs.existsSync(moduleDir))
+            fs.mkdirSync(moduleDir);
+        var file = new Buffer(result.content.replace(/(\r\n|\n|\r)/gm, ""), 'base64').toString('utf8');
+        fs.writeFileSync(moduleDir + '/' + moduleName + '.html', file, { encoding: 'utf8' });
+    };
+
+    NTSC.prototype.showModule = function (moduleName) {
+        var htmlTemplate = fs.readFileSync(this.getCommandsPath(moduleName));
+        var $ = this.$ = cheerio['load'](htmlTemplate);
+        var commands = $('tss');
+        var table = new Table({
+            head: ['command', 'description'],
+            colWidths: [40, 80],
+            chars: { 'mid': '', 'left-mid': '', 'mid-mid': '', 'right-mid': '' }
+        });
+        for (var i = 0, el; i < commands.length; i++) {
+            el = $('tss').eq(i);
+            table.push([el.attr('id'), el.attr('description')]);
+        }
+        console.log(table.toString());
+    };
+
+    NTSC.deleteFolderRecursive = function (path) {
+        if (fs.existsSync(path)) {
+            fs.readdirSync(path).forEach(function (file, index) {
+                var curPath = path + "/" + file;
+                if (fs.statSync(curPath).isDirectory()) {
+                    NTSC.deleteFolderRecursive(curPath);
+                } else {
+                    fs.unlinkSync(curPath);
+                }
+            });
+            fs.rmdirSync(path);
+        }
+    };
+    return NTSC;
 })();
-exports.TScaffold = TScaffold;
+exports.NTSC = NTSC;
 
 /*!
 * micromustache.js - A stripped down version of the {{mustache}} template engine with JavaScript
