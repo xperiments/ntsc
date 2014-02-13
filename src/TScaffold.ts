@@ -154,7 +154,7 @@ export class TScaffold
 	}
 	public getCommandsPath( commandModule:string )
 	{
-		return this.nodeBinDir+'/modules/'+commandModule+'.html';
+		return this.nodeBinDir+'/modules/'+commandModule+'/'+commandModule+'.html';
 	}
 	public _getCommandsPath()
 	{

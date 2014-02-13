@@ -128,7 +128,7 @@ else
         }
     };
     TScaffold.prototype.getCommandsPath = function (commandModule) {
-        return this.nodeBinDir + '/modules/' + commandModule + '.html';
+        return this.nodeBinDir + '/modules/' + commandModule + '/' + commandModule + '.html';
     };
     TScaffold.prototype._getCommandsPath = function () {
         var upDirLimit = 50;
