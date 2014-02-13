@@ -1,0 +1,42 @@
+<tss id="angular.service" ouput="{{module}}.{{className}}.ts"><tss-template>
+{{import('ts.ng.controller',{module:params.module,className:'juan'})}}
+
+/**
+* Created by {{$USER}} on {{$DATE}}.
+*/
+module {{module}}
+{
+    // service
+    class {{className}}
+    {
+        static $inject = {{toInjector}};
+        constructor( {{toConstructor}} )
+        {
+
+        }
+
+    }
+}
+</tss-template>
+    <tss-var var="module" default="myModuleName" prompt="Module name"/>
+    <tss-var var="className" default="myClassName" prompt="Enter class name"/>
+    <tss-var var="injections" default="$scope" prompt="What injections to include ( comma sepparated )"/>
+    <script>
+        (function (){
+            return{
+                toInjector:function( )
+                {
+
+                    return JSON.stringify( this.injections.split(',') );
+                },
+                toConstructor:function( elem )
+                {
+                    var injections = this.injections.split(',');
+                    injections = injections.map(function(e){ return "private "+e } );
+                    return injections.join(',');
+                }
+
+            }
+        })()
+    </script>
+</tss>

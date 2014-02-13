@@ -1,0 +1,17 @@
+{
+  "name": "ntsc",
+  "version": "0.0.0",
+  "description": "Simple Scaffolding System in Typescript",
+  "bin": {
+    "ntsc": "./bin/ntsc.js"
+  },
+  "main": "./src/TScaffold.js",
+  "author": "Pedro Casaubon",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "~0.13.1",
+    "cli-prompt": "~0.3.2",
+    "commander": "~2.1.0",
+    "mkdirp": "~0.3.5"
+  }
+}
