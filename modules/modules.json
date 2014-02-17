@@ -1,6 +1,12 @@
 {
-	"modules":[
-		 { "name":"angular", "description":"Angular Typescript Templates"}
-		,{ "name":"license", "description":"Open source licenses"}
+	"modules": [
+		{
+			"name": "angular",
+			"description": "Angular Typescript Templates"
+		},
+		{
+			"name": "license",
+			"description": "Open source licenses"
+		}
 	]
 }

@@ -3,9 +3,6 @@
  */
 ///<reference path="typings/node/node.d.ts"/>
 
-// ntsc --remove angular
-// ntsc --install angular
-// ntsc --list angular
 
 import fs = require('fs');
 import path = require('path');
@@ -14,7 +11,17 @@ var cheerio = require('../node_modules/cheerio');
 var prompt = require('../node_modules/cli-prompt');
 var mkdirp = require('../node_modules/mkdirp');
 var Table = require('../node_modules/cli-table');
-require("copy-paste")
+var clipboard:IClipboard = require("../node_modules/copy-paste").noConflict();
+
+//clipboard.copy('AAAA')
+
+interface IClipboard
+{
+	copy( text:string, cb?:()=>void ):void;
+	paste( cb?:()=>void ):void;
+}
+
+
 
 export interface INtscModule
 {
@@ -29,6 +36,8 @@ export interface INtscModule
 	content: string;
 	encoding: string;
 }
+
+
 
 export class NTSC
 {
@@ -51,7 +60,7 @@ export class NTSC
 		this.commandsFile= this.getCommandsPath( commandModule );
 
 
-		this.commandsContent = fs.readFileSync(this.commandsFile, {encoding:"utf8"});
+		this.commandsContent = <string><any>fs.readFileSync(this.commandsFile, {encoding:"utf8"});
 		var $ = this.$ = cheerio['load']( this.commandsContent );
 		var commands:any[] = [];
 		if($('tss').length != 0 )
@@ -84,6 +93,7 @@ export class NTSC
 
 				prompt.multi(prompts,( result )=>
 				{
+
 					if( result.ntsc____correct.toLowerCase()!=="y")
 					{
 						process.exit(0);
@@ -94,44 +104,63 @@ export class NTSC
 					result['$DATE'] = (new Date()).toISOString().slice(0,10);
 
 					console.log( '[ntsc] [O] Processing:', command );
-					//result.toArray = function( elem ){ return JSON.stringify( this[elem].split(',') )}
-					el.find('script').each(function(iVar, elemVar) {
+
+					el.find('script').each(function(iVar, elemVar){
 						var methods = eval( $(this).text() )
 						Object.keys( methods ).map( (e)=>{
 							result[e]=methods[e];
 						})
 					})
 					var render = MicroMustache.render(el.find('tss-template').text(), result, this );
-					var hasOuput = el.attr('ouput');
-					var output;
-					if( hasOuput ) output = MicroMustache.render( hasOuput, result, this );
-					var dest = this.processDir + '/'+output;
-					if( !fs.existsSync( dest ))
+					var realOutput = output =="none" ? MicroMustache.render( el.attr('ouput'), result, this ):output;
+					var dest = this.processDir + '/'+realOutput;
+
+					if( el.attr('clipboard')=="" )
 					{
-						mkdirp(path.dirname(dest), (err)=>{
-							if (err)
-							{
-								console.error(err)
-							}
-							else
-							{
-								fs.writeFileSync( dest, render,{encoding:'utf8'});
-							}
-							console.log( '[ntsc] [+] Generated',output,'file.')
-						});
+						clipboard.copy( render,()=>
+						{
+							this.writeTemplate( dest, render, realOutput );
+							console.log('Template copied to ClipBoard.');
+						 });
 					}
 					else
 					{
-						fs.writeFileSync( dest, render,{encoding:'utf8'})
-						console.log( '[ntsc] [+] Generated',output,'file.')
+						this.writeTemplate( dest, render, realOutput );
 					}
-
 				});
 
 
 			}
 
 
+		}
+		else
+		{
+			process.exit();
+		}
+	}
+
+	private writeTemplate( dest:string, render:string, output )
+	{
+		if( !fs.existsSync( dest ))
+		{
+			mkdirp(path.dirname(dest), (err)=>{
+				if (err)
+				{
+					console.error(err)
+				}
+				else
+				{
+
+					fs.writeFileSync( dest, render,{encoding:'utf8'});
+				}
+				console.log( '[ntsc] [+] Generated',output,'file.')
+			});
+		}
+		else
+		{
+			fs.writeFileSync( dest, render,{encoding:'utf8'})
+			console.log( '[ntsc] [+] Generated',output,'file.')
 		}
 	}
 
@@ -195,7 +224,7 @@ export class NTSC
 	{
 		var options = {
 			host:'api.github.com',
-			path: this.modulesURL,
+			path: this.modulesURL+'/modules.json',
 			headers: {
 				'User-Agent': 'ntsc'
 			}
@@ -205,16 +234,24 @@ export class NTSC
 			res.on('data',(d)=>{response+=d});
 			//the whole response has been recieved, so we just print it out here
 			res.on('end', ()=>{
-
-				var modules = JSON.parse( response );
-				modules.map( (entry:any )=>{
-					if( entry.type =="dir") console.log('----',entry.name )
+				var result = JSON.parse( response );
+				var file:string = new Buffer( result.content.replace(/(\r\n|\n|\r)/gm,"") ,'base64').toString('utf8');
+				var modules = JSON.parse( file );
+				var table = new Table({
+					head: ['module', 'description']
+					, colWidths: [40, 80]
+					, chars: {'mid': '', 'left-mid': '', 'mid-mid': '', 'right-mid': ''}
+				});
+				modules.modules.map(( module:{name:string; description:string} )=>{
+					table.push([ module.name, module.description]);
 				})
-				process.exit(0);
+				console.log( table.toString() );
+
 			});
 
 		}).on('error', (e)=> {
-				console.error(e);
+				console.log('Unable to load main repository config. Try latter please.');
+				process.exit(0);
 			});
 	}
 
@@ -254,7 +291,6 @@ export class NTSC
 
 	public uninstallModule( moduleName:string ):void
 	{
-		console.log( this.moduleDir+'/'+moduleName )
 		if( fs.existsSync(this.moduleDir+'/'+moduleName) )
 		{
 			NTSC.deleteFolderRecursive(this.moduleDir+'/'+moduleName);

@@ -1,8 +1,7 @@
 <tss-module name="angular" description="Angular Typescript Templates"/>
 
-<tss id="angular.service" ouput="{{module}}.{{className}}.ts"><tss-template>
+<tss id="angular.service" ouput="{{module}}.{{className}}.ts" description="Angular Service" clipboard><tss-template>
 {{import('ts.ng.controller',{module:params.module,className:'juan'})}}
-
 /**
 * Created by {{$USER}} on {{$DATE}}.
 */
@@ -43,22 +42,19 @@ module {{module}}
     </script>
 </tss>
 
-<tss id="angular.controller" ouput="ouput/{{module}}.{{className}}.ts">
-    <tss-var var="module" default="myModuleName">What module name</tss-var>
-    <tss-var var="className" default="myClassName">What class name</tss-var>
-
-    <tss-template>
-        module {{module}}
-        {
-        class {{className}}
-        {
+<tss id="angular.controller" ouput="ouput/{{module}}.{{className}}.ts" description="Angular Controller"><tss-template>
+module {{module}}
+{
+    class {{className}}
+    {
         static $inject = ["$scope"];
         constructor( private $scope )
         {
 
         }
-
-        }
-        }
+    }
+}
     </tss-template>
+    <tss-var var="module" default="myModuleName" prompt="Module name"/>
+    <tss-var var="className" default="myClassName" prompt="Enter class name"/>
 </tss>
